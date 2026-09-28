@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>파일공유</title>
+<style>
+:root{
+  --bg:#f4f5f8;--card:#fff;--line:#e3e6eb;--line2:#eff1f4;--tx:#1d2330;--mu:#7d8594;--mu2:#5f6776;
+  --blue:#2563eb;--blue-bg:#e8f0fe;--blue-tx:#1a56db;--pur:#7c3aed;--pur-bg:#f1e8ff;--pur-tx:#7e22ce;
+  --red-bg:#fdecec;--red-tx:#c62828;--gray-bg:#eff1f4;--hover:#f8f9fb;--sel:#f2f6ff;--bar:#1d2330;--bar-tx:#fff;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12151b;--card:#1a1e26;--line:#2a303b;--line2:#222731;--tx:#e6e9ef;--mu:#8b93a3;--mu2:#a3aab8;
+  --blue:#4c82f7;--blue-bg:#1c2b4d;--blue-tx:#9dbcff;--pur:#8b5cf6;--pur-bg:#2a1f45;--pur-tx:#c9b0ff;
+  --red-bg:#3a1d1f;--red-tx:#ff9b9b;--gray-bg:#232833;--hover:#1f242d;--sel:#1b2436;--bar:#e6e9ef;--bar-tx:#12151b;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151b;--card:#1a1e26;--line:#2a303b;--line2:#222731;--tx:#e6e9ef;--mu:#8b93a3;--mu2:#a3aab8;
+  --blue:#4c82f7;--blue-bg:#1c2b4d;--blue-tx:#9dbcff;--pur:#8b5cf6;--pur-bg:#2a1f45;--pur-tx:#c9b0ff;
+  --red-bg:#3a1d1f;--red-tx:#ff9b9b;--gray-bg:#232833;--hover:#1f242d;--sel:#1b2436;--bar:#e6e9ef;--bar-tx:#12151b;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.45 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;min-height:100vh}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px 110px}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.hin{max-width:1040px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px}
+.logo{width:30px;height:30px;border-radius:9px;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:15px}
+.me{font-size:12.5px;color:var(--mu2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:none}
+.sp{flex:1}
+.search{width:240px;max-width:100%;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--bg)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:7px 14px;font-weight:600;font-size:13px;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.ghost{border-color:transparent;background:none;color:var(--mu2)}
+.mini{padding:4px 11px;font-size:12px;border-radius:8px}
+.muted{color:var(--mu)}
+h2{font-size:16px;display:flex;align-items:center;gap:10px;margin:22px 0 10px}
+h2 .muted{font-size:13px;font-weight:400}
+.badge{display:inline-flex;align-items:center;border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.b-mod{background:var(--blue-bg);color:var(--blue-tx)}.b-get{background:var(--pur-bg);color:var(--pur-tx)}.b-same{background:var(--gray-bg);color:var(--mu2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+
+/* 프로그램 */
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+.app{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 12px 12px 14px;display:flex;align-items:center;gap:12px;position:relative}
+.mono{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:17px;flex:none}
+.app .info{flex:1;min-width:0}.app b{font-size:15px}
+.app .sub{font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.play{width:42px;height:42px;border-radius:50%;border:0;background:var(--blue);color:#fff;display:grid;place-items:center;flex:none;text-decoration:none}
+.play svg{margin-left:3px}
+.app .x{position:absolute;top:4px;right:6px;border:0;background:none;color:var(--mu);font-size:12px;padding:2px 6px;border-radius:6px;opacity:0}
+.app:hover .x,.app .x:focus-visible{opacity:1}
+.hint{font-size:12.5px;color:var(--mu);margin-top:8px}
+.hint code{background:var(--gray-bg);border-radius:5px;padding:1px 6px;font-size:12px}
+
+/* 목록 */
+.tbl{overflow-x:auto}
+.tr{display:grid;grid-template-columns:minmax(220px,1fr) 70px 110px 150px;align-items:center;min-height:40px;border-bottom:1px solid var(--line2);padding-right:14px;min-width:560px}
+.tr:last-child{border-bottom:0}
+.tr.hd{min-height:34px;font-size:11.5px;color:var(--mu);font-weight:600}
+.tr.row:hover{background:var(--hover)}.tr.sel{background:var(--sel)}
+.tr.drop-on{outline:2px dashed var(--blue);outline-offset:-3px;background:var(--sel)}
+.nm{display:flex;align-items:center;gap:8px;min-width:0;padding-left:14px}
+.nm .tw{width:14px;flex:none;text-align:center;color:var(--mu);font-size:10px}
+.nm .ic{flex:none;width:16px;text-align:center}
+.nm .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dir .t{font-weight:700}
+.cnt{color:var(--mu);font-weight:400;font-size:12px}
+.cb{width:16px;height:16px;border:1.5px solid #b9bfc9;border-radius:4px;flex:none;position:relative;background:var(--card)}
+.cb.on,.cb.part{background:var(--blue);border-color:var(--blue)}
+.cb.on::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.cb.part::after{content:"";position:absolute;left:3px;top:6px;width:7px;height:2px;background:#fff}
+.who{display:inline-flex;align-items:center;gap:6px}
+.av{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff}
+.acts{display:flex;gap:6px;justify-content:flex-end}
+.here{font-size:11.5px;padding:2px 9px;border-radius:7px;border:1px dashed var(--line);background:none;color:var(--mu2)}
+.here.on{border-style:solid;border-color:var(--blue);color:var(--blue-tx);background:var(--blue-bg)}
+.empty{padding:26px;text-align:center;color:var(--mu)}
+.drop{margin-top:12px;border:2px dashed var(--line);border-radius:14px;padding:18px;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--mu2);flex-wrap:wrap;text-align:center}
+.drop b{color:var(--tx)}
+body.dragging .drop{border-color:var(--blue);background:var(--sel)}
+.linkbtn{border:0;background:none;color:var(--blue);text-decoration:underline;padding:0}
+
+/* 하단 바 · 진행 · 토스트 · 모달 */
+.bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140px);transition:transform .2s;background:var(--bar);color:var(--bar-tx);border-radius:14px;padding:9px 9px 9px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.2);max-width:calc(100% - 32px);flex-wrap:wrap}
+.bar.show{transform:translate(-50%,0)}
+.bar .btn{background:transparent;border-color:color-mix(in srgb,var(--bar-tx) 25%,transparent);color:var(--bar-tx)}
+.bar .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.pp{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translate(-50%,180px);transition:transform .2s;width:520px;max-width:calc(100% - 32px);background:var(--bar);color:var(--bar-tx);border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8}
+.pp.show{transform:translate(-50%,0)}
+.pp .pt{display:flex;justify-content:space-between;font-weight:700}
+.pp .pb{height:7px;border-radius:99px;background:color-mix(in srgb,var(--bar-tx) 18%,transparent);margin:9px 0 6px;overflow:hidden}
+.pp .pb i{display:block;height:100%;width:3%;background:#60a5fa;border-radius:99px;transition:width .2s}
+.pp .cur{font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:17px}
+.toast{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-90px);transition:transform .2s;background:var(--bar);color:var(--bar-tx);padding:9px 16px;border-radius:10px;font-weight:600;z-index:20;max-width:90%}
+.toast.show{transform:translate(-50%,0)}.toast.err{background:var(--red-tx);color:#fff}
+.mbg{position:fixed;inset:0;background:rgba(10,14,22,.45);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+.mbg.show{display:flex}
+.modal{background:var(--card);border-radius:16px;width:460px;max-width:100%;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal h3{font-size:17px;margin-bottom:8px}
+.modal p{color:var(--mu2);margin-bottom:12px;white-space:pre-line}
+.modal ul{list-style:none;max-height:170px;overflow:auto;background:var(--bg);border-radius:9px;padding:8px 12px;margin-bottom:14px;font-size:12.5px}
+.modal .acts{margin-top:4px}
+.inp{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 12px;background:var(--bg);margin-bottom:12px}
+.cmd{display:flex;gap:8px;align-items:center;background:var(--bg);border-radius:9px;padding:8px 10px;margin-bottom:12px;font:12.5px ui-monospace,Consolas,monospace;overflow-x:auto;white-space:nowrap}
+.whos{display:flex;gap:10px;margin-bottom:12px}
+.whos button{flex:1;height:58px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:19px;font-weight:800}
+.whos button:hover{border-color:var(--blue);color:var(--blue)}
+.loading{padding:60px 0;text-align:center;color:var(--mu)}
+@media (max-width:640px){.search{order:5;width:100%}.tr{grid-template-columns:minmax(200px,1fr) 60px 96px 120px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
+<body>
+<header><div class="hin">
+  <div class="brand"><div class="logo">⇅</div>파일공유</div>
+  <button class="me" id="me" title="이 브라우저에서 올릴 때 표시할 이름"></button>
+  <div class="sp"></div>
+  <input class="search" id="q" placeholder="파일 검색" aria-label="파일 검색">
+  <button class="btn" id="refresh">⟳ 새로고침</button>
+</div></header>
+
+<div class="wrap" id="app"><div class="loading">불러오는 중…</div></div>
+
+<div class="bar" id="bar"></div>
+<div class="pp" id="pp"><div class="pt"><span id="ppT"></span><span id="ppN"></span></div><div class="pb"><i id="ppB"></i></div><div class="cur" id="ppC"></div></div>
+<div class="toast" id="toast"></div>
+<div class="mbg" id="mbg"><div class="modal" id="modal"></div></div>
+<input type="file" id="fileIn" multiple hidden>
+
+<script>
+const OWNER = 'jinny1010', REPO = 'file-drop', API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+const META = '.filedrop/meta.json', APPS = '.filedrop/apps.json', MAX = 95 * 1024 * 1024;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = {get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
+               set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }};
+let token = store.get('fd_token'), who = store.get('fd_who');
+let S = {branch: 'main', head: null, files: [], meta: {}, apps: []};
+let sel = new Set(), open = new Set(), target = '_공유', busy = false;
+
+// ── GitHub ──
+async function gh(path, opt = {}) {
+  // GitHub API 는 60초 캐시를 달아 보냄 → 올린 직후 목록이 옛날 것으로 보이지 않게 끔
+  const r = await fetch(path.startsWith('http') ? path : API + path, {cache: 'no-store', ...opt, headers: {
+    Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(opt.body ? {'Content-Type': 'application/json'} : {})}});
+  if (r.status === 401) { store.set('fd_token', ''); token = ''; askToken('토큰이 만료됐거나 틀렸어요. 다시 넣어 주세요.'); throw new Error('인증 실패'); }
+  if (!r.ok) { const j = await r.json().catch(() => ({})); const e = new Error(j.message || `GitHub 오류 ${r.status}`); e.status = r.status; throw e; }
+  return r.json();
+}
+const b64dec = s => Uint8Array.from(atob(s.replace(/\n/g, '')), c => c.charCodeAt(0));
+const b64utf8 = s => { const b = new TextEncoder().encode(s); let o = ''; for (let i = 0; i < b.length; i += 0x8000) o += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(o); };
+const fileB64 = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(f); });
+
+async function load() {
+  const repo = await gh('');
+  S.branch = repo.default_branch;
+  const ref = await gh(`/git/ref/heads/${S.branch}`);
+  S.head = ref.object.sha;
+  const c = await gh(`/git/commits/${S.head}`);
+  const t = await gh(`/git/trees/${c.tree.sha}?recursive=1`);
+  const blob = async p => { const e = t.tree.find(x => x.path === p); return e ? JSON.parse(new TextDecoder().decode(b64dec((await gh(`/git/blobs/${e.sha}`)).content))) : null; };
+  S.meta = await blob(META) || {};
+  S.apps = await blob(APPS) || [];
+  S.baseTree = c.tree.sha;
+  S.files = t.tree.filter(x => x.type === 'blob' && !x.path.startsWith('.filedrop/') && x.path !== 'README.md')
+    .map(x => ({path: x.path, sha: x.sha, size: x.size, ...(S.meta[x.path] || {})}));
+}
+
+// adds: [{path, b64, name}] removes: [path] apps: 새 목록 또는 null
+async function commit(adds, removes, apps, message, onStep) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const tree = [];
+    for (let i = 0; i < adds.length; i++) {
+      onStep?.('prep', i, adds.length, adds[i].path);
+      const b = await gh('/git/blobs', {method: 'POST', body: JSON.stringify({content: adds[i].b64, encoding: 'base64'})});
+      tree.push({path: adds[i].path, mode: '100644', type: 'blob', sha: b.sha});
+    }
+    onStep?.('push', adds.length, adds.length, '');
+    const meta = {...S.meta}, now = new Date(), at = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
+    adds.forEach(a => meta[a.path] = {by: who || '웹', at});
+    removes.forEach(p => { delete meta[p]; tree.push({path: p, mode: '100644', type: 'blob', sha: null}); });
+    tree.push({path: META, mode: '100644', type: 'blob', content: JSON.stringify(meta, null, 1)});
+    if (apps) tree.push({path: APPS, mode: '100644', type: 'blob', content: JSON.stringify(apps, null, 1)});
+    const nt = await gh('/git/trees', {method: 'POST', body: JSON.stringify({base_tree: S.baseTree, tree})});
+    const nc = await gh('/git/commits', {method: 'POST', body: JSON.stringify({message, tree: nt.sha, parents: [S.head],
+      author: {name: who || '웹', email: 'filedrop@local', date: now.toISOString()}})});
+    try {
+      await gh(`/git/refs/heads/${S.branch}`, {method: 'PATCH', body: JSON.stringify({sha: nc.sha})});
+      return;
+    } catch (e) {
+      if (attempt || e.status !== 422) throw e;
+      await load();  // 그 사이 다른 PC가 올렸으면 새 기준으로 한 번 더
+    }
+  }
+}
+const p2 = n => String(n).padStart(2, '0');
+
+// ── 화면 ──
+const avColor = w => w === '횡' ? '#2563eb' : w === '징' ? '#0d9488' : '#6b7280';
+const baseOf = p => p.slice(p.lastIndexOf('/') + 1);
+const dirOf = p => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
+function fmt(s) {
+  if (!s) return '';
+  const d = new Date(s.replace(' ', 'T')), n = new Date(), y = new Date(n); y.setDate(n.getDate() - 1);
+  const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  if (d.toDateString() === n.toDateString()) return '오늘 ' + hm;
+  if (d.toDateString() === y.toDateString()) return '어제 ' + hm;
+  return `${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${hm}`;
+}
+const MONO = [['#f1e8ff', '#7e22ce'], ['#dcfce7', '#15803d'], ['#e0f2fe', '#0369a1'], ['#ffedd5', '#c2410c']];
+const PLAY = '<svg width="15" height="17" viewBox="0 0 14 16" aria-hidden="true"><path d="M1 1.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 1 1.5z" fill="currentColor"/></svg>';
+
+function tree(files) {
+  const root = {dirs: new Map(), files: [], n: 0, path: ''};
+  for (const f of files) {
+    const parts = f.path.split('/'); let node = root; node.n++;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], {name: parts[i], path: parts.slice(0, i + 1).join('/'), dirs: new Map(), files: [], n: 0});
+      node = node.dirs.get(parts[i]); node.n++;
+    }
+    node.files.push(f);
+  }
+  return root;
+}
+const under = (n, o = []) => (n.files.forEach(f => o.push(f.path)), n.dirs.forEach(d => under(d, o)), o);
+
+function render() {
+  $('#me').textContent = `이 브라우저: ${who || '이름 없음'}`;
+  const q = $('#q').value.trim().toLowerCase();
+  const files = S.files.filter(f => !q || f.path.toLowerCase().includes(q));
+  const byPath = new Map(S.files.map(f => [f.path, f]));
+  let h = `<h2>프로그램 <span class="muted">누르면 그 PC에서 최신 버전으로 실행</span></h2>`;
+  h += S.apps.length ? '<div class="apps">' + S.apps.map((a, i) => {
+    const [bg, fg] = MONO[i % MONO.length], f = byPath.get(a.entry);
+    return `<div class="app"><div class="mono" style="background:${bg};color:${fg}">${esc(a.name[0])}</div>
+      <div class="info"><b>${esc(a.name)}</b><div class="sub" title="${esc(a.entry)}">${esc(baseOf(a.entry))}${f?.by ? ` · ${esc(f.by)} ${fmt(f.at)}` : ''}</div></div>
+      <a class="play" href="filedrop://run/${encodeURIComponent(a.entry)}" title="${esc(a.name)} 실행" data-run="${esc(a.name)}">${PLAY}</a>
+      <button class="x" data-unapp="${esc(a.entry)}" aria-label="${esc(a.name)} 빼기">✕</button></div>`;
+  }).join('') + '</div>' : '<div class="hint">목록에서 .py 파일 하나를 체크 → 아래 바의 [프로그램에 추가]</div>';
+  h += `<div class="hint">[▶]는 파일공유가 설치된 PC에서만 동작해요. 처음 한 번 브라우저가 “열까요?” 물으면 <code>항상 허용</code>.</div>`;
+
+  h += `<h2>공유 목록 <span class="muted">GitHub · ${S.files.length}개</span></h2><div class="card"><div class="tbl">`;
+  h += `<div class="tr hd"><div class="nm"><span class="tw"></span>파일</div><span>올린 PC</span><span>올린 시각</span><span></span></div>`;
+  const out = [], pad = d => `style="padding-left:${14 + d * 24}px"`;
+  const walk = (node, d) => {
+    for (const dn of [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
+      const fs = under(dn), on = fs.filter(p => sel.has(p)).length, isOpen = q || open.has(dn.path);
+      out.push(`<div class="tr row dir" data-dir="${esc(dn.path)}"><div class="nm" ${pad(d)}><span class="tw">${isOpen ? '▾' : '▸'}</span>
+        <span class="cb ${on === fs.length ? 'on' : on ? 'part' : ''}" data-dcb role="checkbox" aria-checked="${on === fs.length}"></span><span class="ic">📁</span>
+        <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span></div><span></span><span></span>
+        <span class="acts"><button class="here ${target === dn.path ? 'on' : ''}" data-here="${esc(dn.path)}">${target === dn.path ? '여기로 올림' : '여기로'}</button></span></div>`);
+      if (isOpen) walk(dn, d + 1);
+    }
+    for (const f of node.files.sort((a, b) => a.path.localeCompare(b.path, 'ko'))) {
+      out.push(`<div class="tr row ${sel.has(f.path) ? 'sel' : ''}" data-file="${esc(f.path)}"><div class="nm" ${pad(d)}><span class="tw"></span>
+        <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.path))}</span></div>
+        <span class="who">${f.by ? `<span class="av" style="background:${avColor(f.by)}">${esc(f.by[0])}</span>${esc(f.by)}` : ''}</span>
+        <span class="muted">${fmt(f.at)}</span><span class="acts"><button class="btn mini" data-get="${esc(f.path)}">받기</button></span></div>`);
+    }
+  };
+  walk(tree(files), 0);
+  h += (out.join('') || `<div class="empty">${q ? '검색 결과 없음' : '아직 공유된 파일이 없어요'}</div>`) + '</div></div>';
+  h += `<div class="drop" id="drop"><span>⬆</span><span><b>여기로 파일을 끌어다 놓으면 올라가요</b><br>
+    <span class="muted">올릴 위치: <b>${esc(target)}/</b> · 폴더 줄의 [여기로]로 바꾸기 · 폴더 줄에 바로 놓아도 돼요</span></span>
+    <button class="btn" id="pick">파일 선택</button></div>`;
+  $('#app').innerHTML = h;
+  renderBar();
+}
+function renderBar() {
+  const bar = $('#bar'), ps = [...sel];
+  const one = ps.length === 1 && /\.(py|pyw|bat|exe)$/i.test(ps[0]) && !S.apps.some(a => a.entry === ps[0]);
+  bar.innerHTML = ps.length ? `<b>${ps.length}개 선택</b>
+    <button class="btn pri" data-bar="get">⬇ 받기</button>
+    ${one ? '<button class="btn" data-bar="app">▶ 프로그램에 추가</button>' : ''}
+    <button class="btn" data-bar="del">삭제</button><button class="btn" data-bar="clear" aria-label="선택 해제">✕</button>` : '';
+  bar.classList.toggle('show', ps.length > 0 && !busy);
+}
+
+// ── 공통 UI ──
+function toast(m, err) { const t = $('#toast'); t.textContent = m; t.classList.toggle('err', !!err); t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), err ? 5000 : 2500); }
+function modal(html) { $('#modal').innerHTML = html; $('#mbg').classList.add('show'); }
+const close = () => $('#mbg').classList.remove('show');
+function confirmBox(title, msg, list, ok) {
+  return new Promise(res => {
+    modal(`<h3>${title}</h3><p>${msg}</p>${list.length ? `<ul>${list.slice(0, 40).map(p => `<li>${esc(p)}</li>`).join('')}${list.length > 40 ? `<li>… 외 ${list.length - 40}개</li>` : ''}</ul>` : ''}
+      <div class="acts"><button class="btn ghost" id="mNo">취소</button><button class="btn pri" id="mOk">${ok}</button></div>`);
+    $('#mNo').onclick = () => { close(); res(false); }; $('#mOk').onclick = () => { close(); res(true); };
+  });
+}
+function prog(title, done, total, cur, phase) {
+  $('#pp').classList.add('show'); $('#ppT').textContent = title;
+  $('#ppN').textContent = phase === 'push' ? 'GitHub에 반영 중' : total ? `${done} / ${total}` : '';
+  $('#ppB').style.width = Math.max(3, phase === 'push' ? 92 : total ? done / total * 85 : 10) + '%';
+  $('#ppC').textContent = cur || '';
+}
+async function act(title, fn) {
+  if (busy) return; busy = true; renderBar(); prog(title, 0, 0, '');
+  try { await fn(); await load(); return true; }
+  catch (e) { if (e.message !== '인증 실패') toast(e.message, true); }
+  finally { busy = false; $('#pp').classList.remove('show'); render(); }
+}
+
+// ── 동작 ──
+async function upload(fileList, dir) {
+  const files = [...fileList].filter(f => f.size <= MAX), big = [...fileList].filter(f => f.size > MAX);
+  if (big.length) toast(`95MB 넘는 파일은 GitHub에 못 올려요: ${big.map(f => f.name).join(', ')}`, true);
+  if (!files.length) return;
+  const paths = files.map(f => (dir ? dir + '/' : '') + f.name);
+  const exist = paths.filter(p => S.files.some(f => f.path === p));
+  if (exist.length && !await confirmBox('덮어쓰기', '같은 이름의 파일이 있어요. 새 파일로 바꿀까요?', exist, '덮어쓰기')) return;
+  const ok = await act(`⬆ ${files.length}개 올리는 중`, async () => {
+    const adds = [];
+    for (let i = 0; i < files.length; i++) { prog(`⬆ ${files.length}개 올리는 중`, i, files.length, files[i].name); adds.push({path: paths[i], b64: await fileB64(files[i])}); }
+    const names = files.slice(0, 3).map(f => f.name).join(', ') + (files.length > 3 ? ` 외 ${files.length - 3}개` : '');
+    await commit(adds, [], null, `[${who || '웹'}] 올리기 ${files.length}개: ${names}`, (ph, d, t, c) => prog(`⬆ ${files.length}개 올리는 중`, d, t, c, ph));
+  });
+  if (ok) toast(`${files.length}개 올렸어요 → ${dir || '맨 위'}/`);
+}
+async function download(paths) {
+  let n = 0;
+  for (const p of paths) {
+    const f = S.files.find(x => x.path === p); if (!f) continue;
+    prog('⬇ 받는 중', n, paths.length, p);
+    try {
+      const b = await gh(`/git/blobs/${f.sha}`);
+      const url = URL.createObjectURL(new Blob([b64dec(b.content)]));
+      const a = document.createElement('a'); a.href = url; a.download = baseOf(p); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000); n++;
+    } catch (e) { toast(`${baseOf(p)} 받기 실패: ${e.message}`, true); }
+  }
+  $('#pp').classList.remove('show');
+  if (n) toast(`${n}개 받았어요 (브라우저 다운로드 폴더)`);
+}
+async function removeFiles(paths) {
+  if (!await confirmBox('삭제', '공유 목록에서 지워요. 각 PC에 받아 둔 파일은 그대로예요.', paths, '삭제')) return;
+  if (await act('🗑 삭제 중', () => commit([], paths, null, `[${who || '웹'}] 삭제 ${paths.length}개`))) { sel.clear(); toast(`${paths.length}개 지웠어요`); }
+}
+function addApp(entry) {
+  modal(`<h3>프로그램에 추가</h3><p>${esc(entry)}</p><input class="inp" id="appName" value="${esc(baseOf(entry).replace(/\.[^.]+$/, ''))}" aria-label="버튼 이름">
+    <div class="acts"><button class="btn ghost" id="mNo">취소</button><button class="btn pri" id="mOk">추가</button></div>`);
+  const go = async () => {
+    const name = $('#appName').value.trim(); if (!name) return; close(); sel.clear();
+    if (await act('추가 중', () => commit([], [], [...S.apps.filter(a => a.entry !== entry), {name, entry}], `[${who || '웹'}] 프로그램 추가: ${name}`))) toast(`'${name}' 추가했어요`);
+  };
+  $('#mNo').onclick = close; $('#mOk').onclick = go; $('#appName').onkeydown = e => e.key === 'Enter' && go(); $('#appName').select();
+}
+function askToken(msg) {
+  modal(`<h3>GitHub 토큰 넣기</h3><p>${msg || '비공개 저장소를 읽으려면 토큰이 필요해요. 이 브라우저에만 저장돼요.'}\n횡/징 PowerShell에서 아래를 실행하면 토큰이 복사돼요. 여기에 붙여 넣으세요.</p>
+    <div class="cmd"><span id="cmdTxt">gh auth token -u ${OWNER} | clip</span><button class="btn mini" id="cpy">복사</button></div>
+    <input class="inp" id="tok" type="password" placeholder="gho_… 또는 github_pat_…" aria-label="GitHub 토큰" autocomplete="off">
+    <div class="acts"><button class="btn pri" id="mOk">확인</button></div>`);
+  $('#cpy').onclick = () => navigator.clipboard?.writeText($('#cmdTxt').textContent).then(() => toast('복사했어요'), () => {});
+  const go = async () => {
+    token = $('#tok').value.trim(); if (!token) return;
+    try { await load(); store.set('fd_token', token); close(); if (!who) askWho(); render(); }
+    catch (e) { if (e.message !== '인증 실패') { $('#tok').value = ''; toast('이 토큰으로는 저장소를 못 열어요: ' + e.message, true); } }
+  };
+  $('#mOk').onclick = go; $('#tok').onkeydown = e => e.key === 'Enter' && go(); setTimeout(() => $('#tok')?.focus(), 50);
+}
+function askWho() {
+  modal(`<h3>이 브라우저 이름</h3><p>여기서 올린 파일에 '올린 PC'로 표시돼요.</p>
+    <div class="whos"><button data-w="횡">횡</button><button data-w="징">징</button><button data-w="폰">폰</button></div>
+    <input class="inp" id="whoIn" placeholder="다른 이름 입력 후 Enter" aria-label="이름">`);
+  const set = w => { if (!w) return; who = w; store.set('fd_who', w); close(); render(); };
+  document.querySelectorAll('[data-w]').forEach(b => b.onclick = () => set(b.dataset.w));
+  $('#whoIn').onkeydown = e => e.key === 'Enter' && set(e.target.value.trim());
+}
+
+// ── 이벤트 ──
+$('#refresh').onclick = () => act('불러오는 중', async () => {}).then(ok => ok && toast('새로고침했어요'));
+$('#q').oninput = render;
+$('#me').onclick = askWho;
+$('#fileIn').onchange = e => { upload(e.target.files, target); e.target.value = ''; };
+$('#mbg').addEventListener('click', e => { if (e.target.id === 'mbg' && token) close(); });
+$('#app').addEventListener('click', async e => {
+  const t = e.target;
+  if (t.closest('#pick')) return $('#fileIn').click();
+  const run = t.closest('[data-run]');
+  if (run) { toast(`▶ ${run.dataset.run} — 이 PC의 도우미에게 보냈어요`); return; }
+  const un = t.closest('[data-unapp]');
+  if (un) {
+    const a = S.apps.find(x => x.entry === un.dataset.unapp);
+    if (await confirmBox('프로그램 칸에서 빼기', `'${a.name}' 버튼만 빠지고 파일은 그대로예요.`, [], '빼기'))
+      act('빼는 중', () => commit([], [], S.apps.filter(x => x.entry !== a.entry), `[${who || '웹'}] 프로그램 빼기: ${a.name}`));
+    return;
+  }
+  const get = t.closest('[data-get]'); if (get) return download([get.dataset.get]);
+  const here = t.closest('[data-here]'); if (here) { target = here.dataset.here; return render(); }
+  const dir = t.closest('[data-dir]');
+  if (dir) {
+    const p = dir.dataset.dir;
+    if (t.closest('[data-dcb]')) {
+      let node = tree(S.files); for (const part of p.split('/')) node = node.dirs.get(part);
+      const fs = under(node), on = fs.every(x => sel.has(x)); fs.forEach(x => on ? sel.delete(x) : sel.add(x));
+    } else open.has(p) ? open.delete(p) : open.add(p);
+    return render();
+  }
+  const f = t.closest('[data-file]'); if (f) { sel.has(f.dataset.file) ? sel.delete(f.dataset.file) : sel.add(f.dataset.file); render(); }
+});
+$('#bar').addEventListener('click', e => {
+  const a = e.target.closest('[data-bar]')?.dataset.bar, ps = [...sel];
+  if (a === 'get') download(ps);
+  if (a === 'del') removeFiles(ps);
+  if (a === 'app') addApp(ps[0]);
+  if (a === 'clear') { sel.clear(); render(); }
+});
+let dragN = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragN++; document.body.classList.add('dragging'); });
+addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove('dragging'); document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on')); } });
+addEventListener('dragover', e => {
+  e.preventDefault();
+  document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on'));
+  e.target.closest?.('[data-dir]')?.classList.add('drop-on');
+});
+addEventListener('drop', e => {
+  e.preventDefault(); dragN = 0; document.body.classList.remove('dragging');
+  const d = e.target.closest?.('[data-dir]'); document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on'));
+  if (e.dataTransfer.files.length) upload(e.dataTransfer.files, d ? d.dataset.dir : target);
+});
+
+(async () => {
+  if (!token) { $('#app').innerHTML = '<div class="loading">토큰을 넣으면 목록이 보여요</div>'; return askToken(); }
+  try { await load(); if (!who) askWho(); render(); }
+  catch (e) { if (e.message !== '인증 실패') $('#app').innerHTML = `<div class="loading">불러오지 못했어요: ${esc(e.message)}</div>`; }
+})();
+</script>
+</body></html>
