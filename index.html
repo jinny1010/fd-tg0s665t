@@ -138,6 +138,8 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const store = {get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
                set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} }};
 let token = store.get('fd_token'), who = store.get('fd_who');
+// 주소 뒤 #t=토큰 으로 열면 저장하고 주소창에서 바로 지움 (# 뒤는 서버로 안 감)
+{ const m = location.hash.match(/^#t=([\w-]+)/); if (m) { token = m[1]; store.set('fd_token', token); history.replaceState(null, '', location.pathname); } }
 let S = {branch: 'main', head: null, files: [], meta: {}, apps: []};
 let sel = new Set(), open = new Set(), target = '_공유', busy = false;
 
@@ -348,9 +350,10 @@ function addApp(entry) {
   $('#mNo').onclick = close; $('#mOk').onclick = go; $('#appName').onkeydown = e => e.key === 'Enter' && go(); $('#appName').select();
 }
 function askToken(msg) {
-  modal(`<h3>GitHub 토큰 넣기</h3><p>${msg || '비공개 저장소를 읽으려면 토큰이 필요해요. 이 브라우저에만 저장돼요.'}\n횡/징 PowerShell에서 아래를 실행하면 토큰이 복사돼요. 여기에 붙여 넣으세요.</p>
-    <div class="cmd"><span id="cmdTxt">gh auth token -u ${OWNER} | clip</span><button class="btn mini" id="cpy">복사</button></div>
-    <input class="inp" id="tok" type="password" placeholder="gho_… 또는 github_pat_…" aria-label="GitHub 토큰" autocomplete="off">
+  modal(`<h3>GitHub 토큰 넣기</h3><p>${msg || '비공개 저장소를 읽으려면 토큰이 필요해요. 이 브라우저에만 저장돼요.'}\n가장 쉬운 방법: 그 PC의 PowerShell에서 아래를 실행하면 토큰이 들어간 채로 이 사이트가 열려요.</p>
+    <div class="cmd"><span id="cmdTxt">Start-Process "${location.origin}${location.pathname}#t=$(gh auth token -u ${OWNER})"</span><button class="btn mini" id="cpy">복사</button></div>
+    <p>또는 <code>gh auth token -u ${OWNER} | Set-Clipboard</code> 실행 후 아래에 붙여넣기</p>
+    <input class="inp" id="tok" type="text" placeholder="gho_… 또는 github_pat_…" aria-label="GitHub 토큰" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore>
     <div class="acts"><button class="btn pri" id="mOk">확인</button></div>`);
   $('#cpy').onclick = () => navigator.clipboard?.writeText($('#cmdTxt').textContent).then(() => toast('복사했어요'), () => {});
   const go = async () => {
