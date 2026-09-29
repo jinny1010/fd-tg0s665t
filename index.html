@@ -56,6 +56,28 @@ h2 .muted{font-size:13px;font-weight:400}
 .hint{font-size:12.5px;color:var(--mu);margin-top:8px}
 .hint code{background:var(--gray-bg);border-radius:5px;padding:1px 6px;font-size:12px}
 
+/* 변경 보기 */
+.tr.row:not(.dir) .t{cursor:pointer}
+.tr.row:not(.dir) .t:hover{color:var(--blue);text-decoration:underline}
+.modal.wide{width:min(1100px,100%);padding:0;display:flex;flex-direction:column;max-height:88vh}
+.dh{padding:16px 20px 12px;border-bottom:1px solid var(--line)}
+.dh h3{margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dh .p{font-size:12.5px;color:var(--mu2);word-break:break-all}
+.dh .lb{display:flex;gap:8px;margin-top:8px;font-size:12px;align-items:center}
+.dh .lb span{border-radius:6px;padding:2px 8px;font-weight:600}
+.lo{background:var(--red-bg);color:var(--red-tx)}.ln{background:#e7f6ec;color:#15803d}
+.dstat{font-size:12.5px;font-weight:700}.dstat .a{color:#15803d}.dstat .d{color:var(--red-tx)}
+.dbody{overflow:auto;flex:1;font:12.5px/1.55 ui-monospace,Consolas,"D2Coding",monospace;background:var(--bg)}
+.dl{display:grid;grid-template-columns:48px 48px 18px 1fr;min-width:max-content}
+.dl span{padding:0 8px;white-space:pre}
+.dl .n{color:var(--mu);text-align:right;user-select:none}
+.dl .m{user-select:none;padding:0 4px}
+.dl.add{background:color-mix(in srgb,#22c55e 13%,transparent)}.dl.add .m{color:#15803d}
+.dl.del{background:color-mix(in srgb,#ef4444 12%,transparent)}.dl.del .m{color:var(--red-tx)}
+.dgap{padding:3px 12px;color:var(--mu);background:var(--gray-bg);font-size:11.5px}
+.dempty{padding:40px;text-align:center;color:var(--mu)}
+.df{padding:10px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+
 /* 공간 탭 */
 .tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:10px;flex-wrap:wrap}
 .tab{flex:1;min-width:150px;border:0;background:none;border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;font-weight:700;color:var(--mu2);text-align:left}
@@ -303,7 +325,87 @@ function renderBar() {
 
 // ── 공통 UI ──
 function toast(m, err) { const t = $('#toast'); t.textContent = m; t.classList.toggle('err', !!err); t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), err ? 5000 : 2500); }
-function modal(html) { $('#modal').innerHTML = html; $('#mbg').classList.add('show'); }
+function modal(html, wide) { $('#modal').innerHTML = html; $('#modal').classList.toggle('wide', !!wide); $('#mbg').classList.add('show'); }
+
+// ── 변경 보기: 이 파일의 직전 버전 → 지금 ──
+function lineDiff(a, b, ctx = 3) {
+  let s = 0; while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length; while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const A = a.slice(s, ea), B = b.slice(s, eb), N = A.length, M = B.length, ops = [];
+  if (N + M > 30000) { A.forEach((x, i) => ops.push(['del', s + i])); B.forEach((x, j) => ops.push(['add', s + j])); }
+  else {  // Myers
+    const max = N + M, off = max, trace = []; let v = new Int32Array(2 * max + 2), done = false;
+    for (let d = 0; d <= max && !done; d++) {
+      trace.push(v.slice());
+      for (let k = -d; k <= d; k += 2) {
+        let x = (k === -d || (k !== d && v[off + k - 1] < v[off + k + 1])) ? v[off + k + 1] : v[off + k - 1] + 1, y = x - k;
+        while (x < N && y < M && A[x] === B[y]) { x++; y++; }
+        v[off + k] = x;
+        if (x >= N && y >= M) { done = true; break; }
+      }
+    }
+    trace.push(v.slice());
+    let x = N, y = M; const rev = [];
+    for (let d = trace.length - 2; d >= 0 && (x > 0 || y > 0); d--) {
+      const vv = trace[d], k = x - y;
+      const pk = (k === -d || (k !== d && vv[off + k - 1] < vv[off + k + 1])) ? k + 1 : k - 1;
+      const px = vv[off + pk], py = px - pk;
+      while (x > px && y > py) { rev.push(['eq', s + x - 1, s + y - 1]); x--; y--; }
+      if (d > 0) { if (x === px) rev.push(['add', s + y - 1]); else rev.push(['del', s + x - 1]); }
+      x = px; y = py;
+    }
+    for (let i = rev.length - 1; i >= 0; i--) ops.push(rev[i]);
+  }
+  // 앞뒤 같은 줄 + 가운데 차이 → 전체 순서, 그 다음 문맥 3줄만 남김
+  const all = [];
+  for (let i = 0; i < s; i++) all.push({t: 'ctx', a: i + 1, b: i + 1, s: a[i]});
+  for (const o of ops) all.push(o[0] === 'eq' ? {t: 'ctx', a: o[1] + 1, b: o[2] + 1, s: a[o[1]]} : o[0] === 'del' ? {t: 'del', a: o[1] + 1, s: a[o[1]]} : {t: 'add', b: o[1] + 1, s: b[o[1]]});
+  for (let i = 0; i < a.length - ea; i++) all.push({t: 'ctx', a: ea + i + 1, b: eb + i + 1, s: a[ea + i]});
+  const keep = new Uint8Array(all.length);
+  all.forEach((l, i) => { if (l.t !== 'ctx') for (let j = Math.max(0, i - ctx); j <= Math.min(all.length - 1, i + ctx); j++) keep[j] = 1; });
+  const out = []; let last = -2;
+  all.forEach((l, i) => { if (!keep[i]) return; if (last >= 0 && i !== last + 1) out.push({t: 'gap'}); out.push(l); last = i; });
+  return {lines: out, add: all.filter(l => l.t === 'add').length, del: all.filter(l => l.t === 'del').length};
+}
+const toLines = bytes => { if (bytes.slice(0, 8000).includes(0)) return null; return new TextDecoder().decode(bytes).replace(/^﻿/, '').split(/\r?\n/); };
+async function prevVersion(f) {
+  // 공간 분리 전 경로(rel) 기록까지 봄 → 지금과 내용이 다른 가장 최근 버전
+  const q = async p => { try { return await gh(`/commits?sha=${S.branch}&per_page=15&path=${encodeURIComponent(p)}`); } catch { return []; } };
+  const cs = [...await q(f.path), ...await q(f.rel)].sort((x, y) => y.commit.committer.date.localeCompare(x.commit.committer.date));
+  const seen = new Set();
+  for (const c of cs) {
+    if (seen.has(c.sha)) continue; seen.add(c.sha);
+    for (const p of [f.path, f.rel]) {
+      try {
+        const e = await gh(`/contents/${p.split('/').map(encodeURIComponent).join('/')}?ref=${c.sha}`);
+        if (e.sha && e.sha !== f.sha) return {sha: e.sha, by: c.commit.author.name, at: c.commit.author.date};
+        if (e.sha) break;
+      } catch {}
+    }
+  }
+  return null;
+}
+async function showDiff(key) {
+  const f = S.files.find(x => x.path === key); if (!f) return;
+  modal(`<div class="dh"><h3>${esc(baseOf(f.rel))}</h3><div class="p">${esc(f.path)}</div></div><div class="dbody"><div class="dempty">불러오는 중…</div></div>`, true);
+  try {
+    const cur = b64dec((await gh(`/git/blobs/${f.sha}`)).content), prev = await prevVersion(f);
+    const old = prev ? b64dec((await gh(`/git/blobs/${prev.sha}`)).content) : new Uint8Array();
+    const A = prev ? toLines(old) : [], B = toLines(cur);
+    let body, d = {add: 0, del: 0};
+    if (A === null || B === null) body = '<div class="dempty">글자 파일이 아니라서 비교할 수 없어요</div>';
+    else {
+      d = lineDiff(A, B);
+      body = !d.lines.length ? '<div class="dempty">바뀐 내용이 없어요</div>' : d.lines.slice(0, 4000).map(l => l.t === 'gap' ? '<div class="dgap">⋯</div>'
+        : `<div class="dl ${l.t}"><span class="n">${l.a ?? ''}</span><span class="n">${l.b ?? ''}</span><span class="m">${l.t === 'add' ? '+' : l.t === 'del' ? '−' : ''}</span><span>${esc(l.s)}</span></div>`).join('');
+    }
+    $('#modal').innerHTML = `<div class="dh"><h3>마지막으로 올린 변경<span class="dstat"><span class="a">+${d.add}</span> <span class="d">−${d.del}</span></span></h3>
+      <div class="p">${esc(f.space)} 공간 · ${esc(f.rel)}${f.by ? ` · ${esc(f.by)} ${fmt(f.at)}` : ''}</div>
+      <div class="lb">${prev ? `<span class="lo">− 그 전 버전 (${esc(prev.by)} ${fmt(prev.at.slice(0, 16).replace('T', ' '))})</span>→` : ''}<span class="ln">+ ${prev ? '지금 버전' : '처음 올린 파일'}</span></div></div>
+      <div class="dbody">${body}</div><div class="df"><button class="btn" id="dClose">닫기</button></div>`;
+    $('#dClose').onclick = close;
+  } catch (e) { $('#modal .dbody').innerHTML = `<div class="dempty">${esc(e.message)}</div>`; }
+}
 const close = () => $('#mbg').classList.remove('show');
 function confirmBox(title, msg, list, ok) {
   return new Promise(res => {
@@ -427,7 +529,9 @@ $('#app').addEventListener('click', async e => {
     } else open.has(p) ? open.delete(p) : open.add(p);
     return render();
   }
-  const f = t.closest('[data-file]'); if (f) { sel.has(f.dataset.file) ? sel.delete(f.dataset.file) : sel.add(f.dataset.file); render(); }
+  const f = t.closest('[data-file]');
+  if (f && t.closest('.t')) return showDiff(f.dataset.file);
+  if (f) { sel.has(f.dataset.file) ? sel.delete(f.dataset.file) : sel.add(f.dataset.file); render(); }
 });
 $('#app').addEventListener('change', e => {
   const s = e.target.closest('[data-space]'); if (!s) return;
