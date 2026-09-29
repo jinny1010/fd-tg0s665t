@@ -56,6 +56,16 @@ h2 .muted{font-size:13px;font-weight:400}
 .hint{font-size:12.5px;color:var(--mu);margin-top:8px}
 .hint code{background:var(--gray-bg);border-radius:5px;padding:1px 6px;font-size:12px}
 
+/* 공간 탭 */
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:10px;flex-wrap:wrap}
+.tab{flex:1;min-width:150px;border:0;background:none;border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:8px;font-weight:700;color:var(--mu2);text-align:left}
+.tab:hover{background:var(--hover)}
+.tab .s{font-weight:500;font-size:12px;margin-left:auto;color:var(--mu)}
+.tab.on{background:var(--blue-bg);color:var(--blue-tx)}
+.tab.on .s{color:inherit}
+.tab .av{color:#fff}
+.space{font:inherit;font-size:11.5px;border:1px solid var(--line);border-radius:6px;padding:0 4px;background:var(--card);color:var(--mu2);margin-left:6px}
+
 /* 목록 */
 .tbl{overflow-x:auto}
 .tr{display:grid;grid-template-columns:minmax(220px,1fr) 70px 110px 150px;align-items:center;min-height:40px;border-bottom:1px solid var(--line2);padding-right:14px;min-width:560px}
@@ -140,8 +150,10 @@ const store = {get: k => { try { return localStorage.getItem(k) || ''; } catch {
 let token = store.get('fd_token'), who = store.get('fd_who');
 // 주소 뒤 #t=토큰 으로 열면 저장하고 주소창에서 바로 지움 (# 뒤는 서버로 안 감)
 { const m = location.hash.match(/^#t=([\w-]+)/); if (m) { token = m[1]; store.set('fd_token', token); history.replaceState(null, '', location.pathname); } }
-let S = {branch: 'main', head: null, files: [], meta: {}, apps: []};
-let sel = new Set(), open = new Set(), target = '_공유', busy = false;
+let S = {branch: 'main', head: null, files: [], meta: {}, apps: [], spaces: []};
+let sel = new Set(), open = new Set(), target = '_공유', busy = false, tab = null;
+const curTab = () => tab && S.spaces.includes(tab) ? tab : (who && S.spaces.includes(who) ? who : S.spaces[0] || who || '');
+const mine = () => curTab() === who;
 
 // ── GitHub ──
 async function gh(path, opt = {}) {
@@ -165,10 +177,11 @@ async function load() {
   const t = await gh(`/git/trees/${c.tree.sha}?recursive=1`);
   const blob = async p => { const e = t.tree.find(x => x.path === p); return e ? JSON.parse(new TextDecoder().decode(b64dec((await gh(`/git/blobs/${e.sha}`)).content))) : null; };
   S.meta = await blob(META) || {};
-  S.apps = await blob(APPS) || [];
+  S.apps = (await blob(APPS) || []).map(a => ({...a, space: a.space || '횡'})).map(a => ({...a, id: `${a.space}/${a.entry}`}));
   S.baseTree = c.tree.sha;
-  S.files = t.tree.filter(x => x.type === 'blob' && !x.path.startsWith('.filedrop/') && x.path !== 'README.md')
-    .map(x => ({path: x.path, sha: x.sha, size: x.size, ...(S.meta[x.path] || {})}));
+  S.files = t.tree.filter(x => x.type === 'blob' && !x.path.startsWith('.filedrop/') && x.path.includes('/'))
+    .map(x => { const i = x.path.indexOf('/'); return {path: x.path, space: x.path.slice(0, i), rel: x.path.slice(i + 1), sha: x.sha, size: x.size, ...(S.meta[x.path] || {})}; });
+  S.spaces = [...new Set([...S.files.map(f => f.space), ...(who ? [who] : [])])].sort((a, b) => (a !== who) - (b !== who) || a.localeCompare(b, 'ko'));
 }
 
 // adds: [{path, b64, name}] removes: [path] apps: 새 목록 또는 null
@@ -218,7 +231,7 @@ const PLAY = '<svg width="15" height="17" viewBox="0 0 14 16" aria-hidden="true"
 function tree(files) {
   const root = {dirs: new Map(), files: [], n: 0, path: ''};
   for (const f of files) {
-    const parts = f.path.split('/'); let node = root; node.n++;
+    const parts = f.rel.split('/'); let node = root; node.n++;
     for (let i = 0; i < parts.length - 1; i++) {
       if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], {name: parts[i], path: parts.slice(0, i + 1).join('/'), dirs: new Map(), files: [], n: 0});
       node = node.dirs.get(parts[i]); node.n++;
@@ -232,19 +245,25 @@ const under = (n, o = []) => (n.files.forEach(f => o.push(f.path)), n.dirs.forEa
 function render() {
   $('#me').textContent = `이 브라우저: ${who || '이름 없음'}`;
   const q = $('#q').value.trim().toLowerCase();
-  const files = S.files.filter(f => !q || f.path.toLowerCase().includes(q));
+  const files = S.files.filter(f => f.space === curTab() && (!q || f.rel.toLowerCase().includes(q)));
   const byPath = new Map(S.files.map(f => [f.path, f]));
   let h = `<h2>프로그램 <span class="muted">누르면 그 PC에서 최신 버전으로 실행</span></h2>`;
   h += S.apps.length ? '<div class="apps">' + S.apps.map((a, i) => {
-    const [bg, fg] = MONO[i % MONO.length], f = byPath.get(a.entry);
+    const [bg, fg] = MONO[i % MONO.length], f = byPath.get(a.id);
+    const spSel = `<select class="space" data-space="${esc(a.id)}" aria-label="코드 공간">${[...new Set([...S.spaces, a.space])].map(sp => `<option value="${esc(sp)}" ${sp === a.space ? 'selected' : ''}>코드: ${esc(sp)}</option>`).join('')}</select>`;
     return `<div class="app"><div class="mono" style="background:${bg};color:${fg}">${esc(a.name[0])}</div>
-      <div class="info"><b>${esc(a.name)}</b><div class="sub" title="${esc(a.entry)}">${esc(baseOf(a.entry))}${f?.by ? ` · ${esc(f.by)} ${fmt(f.at)}` : ''}</div></div>
-      <a class="play" href="filedrop://run/${encodeURIComponent(a.entry)}" title="${esc(a.name)} 실행" data-run="${esc(a.name)}">${PLAY}</a>
-      <button class="x" data-unapp="${esc(a.entry)}" aria-label="${esc(a.name)} 빼기">✕</button></div>`;
+      <div class="info"><b>${esc(a.name)}</b>${spSel}<div class="sub" title="${esc(a.id)}">${f ? `${esc(baseOf(a.entry))}${f.by ? ` · ${esc(f.by)} ${fmt(f.at)}` : ''}` : `${esc(a.space)} 공간에 파일이 없어요`}</div></div>
+      <a class="play" href="filedrop://run/${encodeURIComponent(a.id)}" title="${esc(a.name)} 실행" data-run="${esc(a.name)}">${PLAY}</a>
+      <button class="x" data-unapp="${esc(a.id)}" aria-label="${esc(a.name)} 빼기">✕</button></div>`;
   }).join('') + '</div>' : '<div class="hint">목록에서 .py 파일 하나를 체크 → 아래 바의 [프로그램에 추가]</div>';
   h += `<div class="hint">[▶]는 파일공유가 설치된 PC에서만 동작해요. 처음 한 번 브라우저가 “열까요?” 물으면 <code>항상 허용</code>.</div>`;
 
-  h += `<h2>공유 목록 <span class="muted">GitHub · ${S.files.length}개</span></h2><div class="card"><div class="tbl">`;
+  h += `<h2>공유 목록 <span class="muted">${esc(curTab())} 공간 · ${S.files.filter(f => f.space === curTab()).length}개</span></h2>`;
+  if (S.spaces.length > 1) h += '<div class="tabs">' + S.spaces.map(sp => {
+    const n = S.files.filter(f => f.space === sp).length;
+    return `<button class="tab ${sp === curTab() ? 'on' : ''}" data-tab="${esc(sp)}"><span class="av" style="background:${avColor(sp)}">${esc(sp[0])}</span>${esc(sp)} 공간<span class="s">${sp === who ? '내 것 · ' : '받기 전용 · '}${n}</span></button>`;
+  }).join('') + '</div>';
+  h += `<div class="card"><div class="tbl">`;
   h += `<div class="tr hd"><div class="nm"><span class="tw"></span>파일</div><span>올린 PC</span><span>올린 시각</span><span></span></div>`;
   const out = [], pad = d => `style="padding-left:${14 + d * 24}px"`;
   const walk = (node, d) => {
@@ -253,31 +272,32 @@ function render() {
       out.push(`<div class="tr row dir" data-dir="${esc(dn.path)}"><div class="nm" ${pad(d)}><span class="tw">${isOpen ? '▾' : '▸'}</span>
         <span class="cb ${on === fs.length ? 'on' : on ? 'part' : ''}" data-dcb role="checkbox" aria-checked="${on === fs.length}"></span><span class="ic">📁</span>
         <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span></div><span></span><span></span>
-        <span class="acts"><button class="here ${target === dn.path ? 'on' : ''}" data-here="${esc(dn.path)}">${target === dn.path ? '여기로 올림' : '여기로'}</button></span></div>`);
+        <span class="acts">${mine() ? `<button class="here ${target === dn.path ? 'on' : ''}" data-here="${esc(dn.path)}">${target === dn.path ? '여기로 올림' : '여기로'}</button>` : ''}</span></div>`);
       if (isOpen) walk(dn, d + 1);
     }
-    for (const f of node.files.sort((a, b) => a.path.localeCompare(b.path, 'ko'))) {
+    for (const f of node.files.sort((a, b) => a.rel.localeCompare(b.rel, 'ko'))) {
       out.push(`<div class="tr row ${sel.has(f.path) ? 'sel' : ''}" data-file="${esc(f.path)}"><div class="nm" ${pad(d)}><span class="tw"></span>
-        <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.path))}</span></div>
+        <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.rel))}</span></div>
         <span class="who">${f.by ? `<span class="av" style="background:${avColor(f.by)}">${esc(f.by[0])}</span>${esc(f.by)}` : ''}</span>
         <span class="muted">${fmt(f.at)}</span><span class="acts"><button class="btn mini" data-get="${esc(f.path)}">받기</button></span></div>`);
     }
   };
   walk(tree(files), 0);
-  h += (out.join('') || `<div class="empty">${q ? '검색 결과 없음' : '아직 공유된 파일이 없어요'}</div>`) + '</div></div>';
-  h += `<div class="drop" id="drop"><span>⬆</span><span><b>여기로 파일을 끌어다 놓으면 올라가요</b><br>
-    <span class="muted">올릴 위치: <b>${esc(target)}/</b> · 폴더 줄의 [여기로]로 바꾸기 · 폴더 줄에 바로 놓아도 돼요</span></span>
-    <button class="btn" id="pick">파일 선택</button></div>`;
+  h += (out.join('') || `<div class="empty">${q ? '검색 결과 없음' : mine() ? '아직 올린 파일이 없어요' : `${esc(curTab())} 공간이 비어 있어요`}</div>`) + '</div></div>';
+  h += who ? `<div class="drop" id="drop"><span>⬆</span><span><b>여기로 끌어다 놓으면 <u>${esc(who)} 공간</u>에 올라가요</b><br>
+    <span class="muted">올릴 위치: <b>${esc(who)}/${esc(target)}/</b>${mine() ? ' · 폴더 줄의 [여기로]로 바꾸기 · 폴더 줄에 바로 놓아도 돼요' : ''}</span></span>
+    <button class="btn" id="pick">파일 선택</button></div>` : '';
   $('#app').innerHTML = h;
   renderBar();
 }
 function renderBar() {
   const bar = $('#bar'), ps = [...sel];
-  const one = ps.length === 1 && /\.(py|pyw|bat|exe)$/i.test(ps[0]) && !S.apps.some(a => a.entry === ps[0]);
+  const one = ps.length === 1 && /\.(py|pyw|bat|exe)$/i.test(ps[0]) && !S.apps.some(a => a.id === ps[0]);
+  const dels = ps.filter(p => p.startsWith(who + '/')).length;
   bar.innerHTML = ps.length ? `<b>${ps.length}개 선택</b>
     <button class="btn pri" data-bar="get">⬇ 받기</button>
     ${one ? '<button class="btn" data-bar="app">▶ 프로그램에 추가</button>' : ''}
-    <button class="btn" data-bar="del">삭제</button><button class="btn" data-bar="clear" aria-label="선택 해제">✕</button>` : '';
+    ${dels ? '<button class="btn" data-bar="del">삭제</button>' : ''}<button class="btn" data-bar="clear" aria-label="선택 해제">✕</button>` : '';
   bar.classList.toggle('show', ps.length > 0 && !busy);
 }
 
@@ -310,7 +330,8 @@ async function upload(fileList, dir) {
   const files = [...fileList].filter(f => f.size <= MAX), big = [...fileList].filter(f => f.size > MAX);
   if (big.length) toast(`95MB 넘는 파일은 GitHub에 못 올려요: ${big.map(f => f.name).join(', ')}`, true);
   if (!files.length) return;
-  const paths = files.map(f => (dir ? dir + '/' : '') + f.name);
+  if (!who) return askWho();
+  const paths = files.map(f => `${who}/` + (dir ? dir + '/' : '') + f.name);
   const exist = paths.filter(p => S.files.some(f => f.path === p));
   if (exist.length && !await confirmBox('덮어쓰기', '같은 이름의 파일이 있어요. 새 파일로 바꿀까요?', exist, '덮어쓰기')) return;
   const ok = await act(`⬆ ${files.length}개 올리는 중`, async () => {
@@ -319,13 +340,13 @@ async function upload(fileList, dir) {
     const names = files.slice(0, 3).map(f => f.name).join(', ') + (files.length > 3 ? ` 외 ${files.length - 3}개` : '');
     await commit(adds, [], null, `[${who || '웹'}] 올리기 ${files.length}개: ${names}`, (ph, d, t, c) => prog(`⬆ ${files.length}개 올리는 중`, d, t, c, ph));
   });
-  if (ok) toast(`${files.length}개 올렸어요 → ${dir || '맨 위'}/`);
+  if (ok) { tab = who; toast(`${files.length}개 올렸어요 → ${who} 공간/${dir || ''}`); render(); }
 }
 async function download(paths) {
   let n = 0;
   for (const p of paths) {
     const f = S.files.find(x => x.path === p); if (!f) continue;
-    prog('⬇ 받는 중', n, paths.length, p);
+    prog('⬇ 받는 중', n, paths.length, f.rel);
     try {
       const b = await gh(`/git/blobs/${f.sha}`);
       const url = URL.createObjectURL(new Blob([b64dec(b.content)]));
@@ -337,15 +358,19 @@ async function download(paths) {
   if (n) toast(`${n}개 받았어요 (브라우저 다운로드 폴더)`);
 }
 async function removeFiles(paths) {
+  paths = paths.filter(p => p.startsWith(who + '/'));
+  if (!paths.length) return toast('내 공간 것만 지울 수 있어요', true);
   if (!await confirmBox('삭제', '공유 목록에서 지워요. 각 PC에 받아 둔 파일은 그대로예요.', paths, '삭제')) return;
   if (await act('🗑 삭제 중', () => commit([], paths, null, `[${who || '웹'}] 삭제 ${paths.length}개`))) { sel.clear(); toast(`${paths.length}개 지웠어요`); }
 }
-function addApp(entry) {
-  modal(`<h3>프로그램에 추가</h3><p>${esc(entry)}</p><input class="inp" id="appName" value="${esc(baseOf(entry).replace(/\.[^.]+$/, ''))}" aria-label="버튼 이름">
+const appsForSave = list => list.map(({name, entry, space}) => ({name, entry, space}));
+function addApp(key) {
+  const i = key.indexOf('/'), space = key.slice(0, i), entry = key.slice(i + 1);
+  modal(`<h3>프로그램에 추가</h3><p>${esc(entry)}\n코드는 ${esc(space)} 공간에서 가져와요</p><input class="inp" id="appName" value="${esc(baseOf(entry).replace(/\.[^.]+$/, ''))}" aria-label="버튼 이름">
     <div class="acts"><button class="btn ghost" id="mNo">취소</button><button class="btn pri" id="mOk">추가</button></div>`);
   const go = async () => {
     const name = $('#appName').value.trim(); if (!name) return; close(); sel.clear();
-    if (await act('추가 중', () => commit([], [], [...S.apps.filter(a => a.entry !== entry), {name, entry}], `[${who || '웹'}] 프로그램 추가: ${name}`))) toast(`'${name}' 추가했어요`);
+    if (await act('추가 중', () => commit([], [], appsForSave([...S.apps.filter(a => a.id !== key), {name, entry, space}]), `[${who || '웹'}] 프로그램 추가: ${name}`))) toast(`'${name}' 추가했어요`);
   };
   $('#mNo').onclick = close; $('#mOk').onclick = go; $('#appName').onkeydown = e => e.key === 'Enter' && go(); $('#appName').select();
 }
@@ -385,23 +410,29 @@ $('#app').addEventListener('click', async e => {
   if (run) { toast(`▶ ${run.dataset.run} — 이 PC의 도우미에게 보냈어요`); return; }
   const un = t.closest('[data-unapp]');
   if (un) {
-    const a = S.apps.find(x => x.entry === un.dataset.unapp);
+    const a = S.apps.find(x => x.id === un.dataset.unapp);
     if (await confirmBox('프로그램 칸에서 빼기', `'${a.name}' 버튼만 빠지고 파일은 그대로예요.`, [], '빼기'))
-      act('빼는 중', () => commit([], [], S.apps.filter(x => x.entry !== a.entry), `[${who || '웹'}] 프로그램 빼기: ${a.name}`));
+      act('빼는 중', () => commit([], [], appsForSave(S.apps.filter(x => x.id !== a.id)), `[${who || '웹'}] 프로그램 빼기: ${a.name}`));
     return;
   }
+  const tb = t.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; sel.clear(); target = '_공유'; return render(); }
   const get = t.closest('[data-get]'); if (get) return download([get.dataset.get]);
   const here = t.closest('[data-here]'); if (here) { target = here.dataset.here; return render(); }
   const dir = t.closest('[data-dir]');
   if (dir) {
     const p = dir.dataset.dir;
     if (t.closest('[data-dcb]')) {
-      let node = tree(S.files); for (const part of p.split('/')) node = node.dirs.get(part);
+      let node = tree(S.files.filter(f => f.space === curTab())); for (const part of p.split('/')) node = node.dirs.get(part);
       const fs = under(node), on = fs.every(x => sel.has(x)); fs.forEach(x => on ? sel.delete(x) : sel.add(x));
     } else open.has(p) ? open.delete(p) : open.add(p);
     return render();
   }
   const f = t.closest('[data-file]'); if (f) { sel.has(f.dataset.file) ? sel.delete(f.dataset.file) : sel.add(f.dataset.file); render(); }
+});
+$('#app').addEventListener('change', e => {
+  const s = e.target.closest('[data-space]'); if (!s) return;
+  const apps = appsForSave(S.apps.map(a => a.id === s.dataset.space ? {...a, space: s.value} : a));
+  act('바꾸는 중', () => commit([], [], apps, `[${who || '웹'}] 프로그램 코드 공간 변경 → ${s.value}`)).then(ok => ok && toast(`코드를 ${s.value} 공간에서 가져와요`));
 });
 $('#bar').addEventListener('click', e => {
   const a = e.target.closest('[data-bar]')?.dataset.bar, ps = [...sel];
@@ -421,7 +452,7 @@ addEventListener('dragover', e => {
 addEventListener('drop', e => {
   e.preventDefault(); dragN = 0; document.body.classList.remove('dragging');
   const d = e.target.closest?.('[data-dir]'); document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on'));
-  if (e.dataTransfer.files.length) upload(e.dataTransfer.files, d ? d.dataset.dir : target);
+  if (e.dataTransfer.files.length) upload(e.dataTransfer.files, d && mine() ? d.dataset.dir : target);
 });
 
 (async () => {
