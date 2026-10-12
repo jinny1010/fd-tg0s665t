@@ -99,7 +99,7 @@ h2 .muted{font-size:13px;font-weight:400}
 
 <script>
 const OWNER = 'jinny1010', REPO = 'file-drop', API = `https://api.github.com/repos/${OWNER}/${REPO}`;
-const META = '.filedrop/meta.json', APPS = '.filedrop/apps.json', MAX = 95 * 1024 * 1024;
+const APPS = '.filedrop/apps.json';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const store = {get: k => { try { return localStorage.getItem(k) || ''; } catch { return ''; } },
@@ -108,7 +108,7 @@ let token = store.get('fd_token'), who = store.get('fd_who');
 // 주소 뒤 #t=토큰 으로 열면 저장하고 주소창에서 바로 지움 (# 뒤는 서버로 안 감)
 { const m = location.hash.match(/^#t=([\w-]+)/); if (m) { token = m[1]; store.set('fd_token', token); history.replaceState(null, '', location.pathname); } }
 // 사이트는 프로그램 칸만 — 파일 목록·내용은 파일공유 앱에서만 봄
-let S = {branch: 'main', head: null, files: [], meta: {}, apps: [], spaces: []};
+let S = {branch: 'main', head: null, apps: [], spaces: []};
 let busy = false;
 // ── GitHub ──
 async function gh(path, opt = {}) {
@@ -127,14 +127,12 @@ async function load() {
   const ref = await gh(`/git/ref/heads/${S.branch}`);
   S.head = ref.object.sha;
   const c = await gh(`/git/commits/${S.head}`);
-  const t = await gh(`/git/trees/${c.tree.sha}?recursive=1`);
-  const blob = async p => { const e = t.tree.find(x => x.path === p); return e ? JSON.parse(new TextDecoder().decode(b64dec((await gh(`/git/blobs/${e.sha}`)).content))) : null; };
-  S.meta = await blob(META) || {};
-  S.apps = (await blob(APPS) || []).map(a => ({...a, space: a.space || '횡'})).map(a => ({...a, id: `${a.space}/${a.entry}`}));
+  // 프로그램 목록(apps.json) 하나만 읽음 — 파일 목록·내용은 안 받음
+  let apps = [];
+  try { apps = JSON.parse(new TextDecoder().decode(b64dec((await gh(`/contents/${APPS}?ref=${S.head}`)).content))); } catch (e) { if (e.status !== 404) throw e; }
+  S.apps = apps.map(a => ({...a, space: a.space || '횡'})).map(a => ({...a, id: `${a.space}/${a.entry}`}));
   S.baseTree = c.tree.sha;
-  S.files = t.tree.filter(x => x.type === 'blob' && !x.path.startsWith('.filedrop/') && x.path.includes('/'))
-    .map(x => { const i = x.path.indexOf('/'); return {path: x.path, space: x.path.slice(0, i), rel: x.path.slice(i + 1), sha: x.sha, size: x.size, ...(S.meta[x.path] || {})}; });
-  S.spaces = [...new Set([...S.files.map(f => f.space), ...(who ? [who] : [])])].sort((a, b) => (a !== who) - (b !== who) || a.localeCompare(b, 'ko'));
+  S.spaces = [...new Set(['횡', '징', ...(who ? [who] : []), ...S.apps.map(a => a.space)])];
 }
 
 // apps: 새 프로그램 목록 (파일은 안 건드림)
@@ -171,13 +169,12 @@ const PLAY = '<svg width="15" height="17" viewBox="0 0 14 16" aria-hidden="true"
 
 function render() {
   $('#me').textContent = `이 브라우저: ${who || '이름 없음'}`;
-  const byPath = new Map(S.files.map(f => [f.path, f]));
   let h = `<h2>프로그램 <span class="muted">누르면 그 PC에서 최신 버전으로 실행</span></h2>`;
   h += S.apps.length ? '<div class="apps">' + S.apps.map((a, i) => {
-    const [bg, fg] = MONO[i % MONO.length], f = byPath.get(a.id);
+    const [bg, fg] = MONO[i % MONO.length];
     const spSel = `<select class="space" data-space="${esc(a.id)}" aria-label="코드 공간">${[...new Set([...S.spaces, a.space])].map(sp => `<option value="${esc(sp)}" ${sp === a.space ? 'selected' : ''}>코드: ${esc(sp)}</option>`).join('')}</select>`;
     return `<div class="app"><div class="mono" style="background:${bg};color:${fg}">${esc(a.name[0])}</div>
-      <div class="info"><b>${esc(a.name)}</b>${spSel}<div class="sub" title="${esc(a.id)}">${f ? `${esc(baseOf(a.entry))}${f.by ? ` · ${esc(f.by)} ${fmt(f.at)}` : ''}` : `${esc(a.space)} 공간에 파일이 없어요`}</div></div>
+      <div class="info"><b>${esc(a.name)}</b>${spSel}<div class="sub" title="${esc(a.id)}">${esc(baseOf(a.entry))}</div></div>
       <a class="play" href="filedrop://run/${encodeURIComponent(a.id)}" title="${esc(a.name)} 실행" data-run="${esc(a.name)}">${PLAY}</a>
       <button class="x" data-unapp="${esc(a.id)}" aria-label="${esc(a.name)} 빼기">✕</button></div>`;
   }).join('') + '</div>' : '<div class="hint">프로그램은 파일공유 앱에서 추가해요</div>';
