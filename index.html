@@ -90,7 +90,7 @@ h2 .muted{font-size:13px;font-weight:400}
 
 /* 목록 */
 .tbl{overflow-x:auto}
-.tr{display:grid;grid-template-columns:minmax(220px,1fr) 70px 110px 150px;align-items:center;min-height:40px;border-bottom:1px solid var(--line2);padding-right:14px;min-width:560px}
+.tr{display:grid;grid-template-columns:minmax(220px,1fr) 70px 100px 100px 120px;align-items:center;min-height:40px;border-bottom:1px solid var(--line2);padding-right:14px;min-width:620px}
 .tr:last-child{border-bottom:0}
 .tr.hd{min-height:34px;font-size:11.5px;color:var(--mu);font-weight:600}
 .tr.row:hover{background:var(--hover)}.tr.sel{background:var(--sel)}
@@ -143,7 +143,7 @@ body.dragging .drop{border-color:var(--blue);background:var(--sel)}
 .whos button{flex:1;height:58px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:19px;font-weight:800}
 .whos button:hover{border-color:var(--blue);color:var(--blue)}
 .loading{padding:60px 0;text-align:center;color:var(--mu)}
-@media (max-width:640px){.search{order:5;width:100%}.tr{grid-template-columns:minmax(200px,1fr) 60px 96px 120px}}
+@media (max-width:640px){.search{order:5;width:100%}.tr{grid-template-columns:minmax(200px,1fr) 60px 90px 90px 110px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head>
 <body>
@@ -223,8 +223,9 @@ async function commit(adds, removes, apps, message, onStep) {
       tree.push({path: adds[i].path, mode: '100644', type: 'blob', sha: b.sha});
     }
     onStep?.('push', adds.length, adds.length, '');
-    const meta = {...S.meta}, now = new Date(), at = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
-    adds.forEach(a => meta[a.path] = {by: who || '웹', at});
+    const stamp = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    const meta = {...S.meta}, now = new Date(), at = stamp(now);
+    adds.forEach(a => meta[a.path] = {by: who || '웹', at, ...(a.mt ? {mt: stamp(new Date(a.mt))} : {})});
     removes.forEach(p => { delete meta[p]; tree.push({path: p, mode: '100644', type: 'blob', sha: null}); });
     tree.push({path: META, mode: '100644', type: 'blob', content: JSON.stringify(meta, null, 1)});
     if (apps) tree.push({path: APPS, mode: '100644', type: 'blob', content: JSON.stringify(apps, null, 1)});
@@ -293,14 +294,14 @@ function render() {
     return `<button class="tab ${sp === curTab() ? 'on' : ''}" data-tab="${esc(sp)}"><span class="av" style="background:${avColor(sp)}">${esc(sp[0])}</span>${esc(sp)} 공간<span class="s">${sp === who ? '내 것 · ' : '받기 전용 · '}${n}</span></button>`;
   }).join('') + '</div>';
   h += `<div class="card"><div class="tbl">`;
-  h += `<div class="tr hd"><div class="nm"><span class="tw"></span>파일</div><span>올린 PC</span><span>올린 시각</span><span></span></div>`;
+  h += `<div class="tr hd"><div class="nm"><span class="tw"></span>파일</div><span>올린 PC</span><span>올린 시각</span><span>수정한 시각</span><span></span></div>`;
   const out = [], pad = d => `style="padding-left:${14 + d * 24}px"`;
   const walk = (node, d) => {
     for (const dn of [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'))) {
       const fs = under(dn), on = fs.filter(p => sel.has(p)).length, isOpen = q || open.has(dn.path);
       out.push(`<div class="tr row dir" data-dir="${esc(dn.path)}"><div class="nm" ${pad(d)}><span class="tw">${isOpen ? '▾' : '▸'}</span>
         <span class="cb ${on === fs.length ? 'on' : on ? 'part' : ''}" data-dcb role="checkbox" aria-checked="${on === fs.length}"></span><span class="ic">📁</span>
-        <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span>${gdir(fs) ? `<span class="gtag" title="이 PC 폴더 git(VS Code)에 커밋 안 된 파일">git ${gdir(fs)}</span>` : ''}</div><span></span><span></span>
+        <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span>${gdir(fs) ? `<span class="gtag" title="이 PC 폴더 git(VS Code)에 커밋 안 된 파일">git ${gdir(fs)}</span>` : ''}</div><span></span><span></span><span></span>
         <span class="acts">${mine() ? `<button class="here ${target === dn.path ? 'on' : ''}" data-here="${esc(dn.path)}">${target === dn.path ? '여기로 올림' : '여기로'}</button>` : ''}</span></div>`);
       if (isOpen) walk(dn, d + 1);
     }
@@ -308,7 +309,7 @@ function render() {
       out.push(`<div class="tr row ${sel.has(f.path) ? 'sel' : ''}" data-file="${esc(f.path)}"><div class="nm" ${pad(d)}><span class="tw"></span>
         <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.rel))}</span>${gitOf(f) ? `<span class="gtag" title="이 PC 폴더 git(VS Code)에 커밋 안 됨 · ${esc(GIT[gitOf(f)] || gitOf(f))}">git</span>` : ''}</div>
         <span class="who">${f.by ? `<span class="av" style="background:${avColor(f.by)}">${esc(f.by[0])}</span>${esc(f.by)}` : ''}</span>
-        <span class="muted">${fmt(f.at)}</span><span class="acts"><button class="btn mini" data-get="${esc(f.path)}">받기</button></span></div>`);
+        <span class="muted">${fmt(f.at)}</span><span class="muted">${fmt(f.mt)}</span><span class="acts"><button class="btn mini" data-get="${esc(f.path)}">받기</button></span></div>`);
     }
   };
   walk(tree(files), 0);
@@ -447,7 +448,7 @@ async function upload(fileList, dir) {
   if (exist.length && !await confirmBox('덮어쓰기', '같은 이름의 파일이 있어요. 새 파일로 바꿀까요?', exist, '덮어쓰기')) return;
   const ok = await act(`⬆ ${files.length}개 올리는 중`, async () => {
     const adds = [];
-    for (let i = 0; i < files.length; i++) { prog(`⬆ ${files.length}개 올리는 중`, i, files.length, files[i].name); adds.push({path: paths[i], b64: await fileB64(files[i])}); }
+    for (let i = 0; i < files.length; i++) { prog(`⬆ ${files.length}개 올리는 중`, i, files.length, files[i].name); adds.push({path: paths[i], b64: await fileB64(files[i]), mt: files[i].lastModified}); }
     const names = files.slice(0, 3).map(f => f.name).join(', ') + (files.length > 3 ? ` 외 ${files.length - 3}개` : '');
     await commit(adds, [], null, `[${who || '웹'}] 올리기 ${files.length}개: ${names}`, (ph, d, t, c) => prog(`⬆ ${files.length}개 올리는 중`, d, t, c, ph));
   });
