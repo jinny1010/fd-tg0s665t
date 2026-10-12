@@ -101,6 +101,7 @@ h2 .muted{font-size:13px;font-weight:400}
 .nm .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dir .t{font-weight:700}
 .cnt{color:var(--mu);font-weight:400;font-size:12px}
+.gtag{flex:none;font-size:10.5px;font-weight:700;color:#b45309;background:#fff4e5;border:1px solid #f5c98b;border-radius:5px;padding:0 5px;line-height:16px;margin-left:6px}
 .cb{width:16px;height:16px;border:1.5px solid #b9bfc9;border-radius:4px;flex:none;position:relative;background:var(--card)}
 .cb.on,.cb.part{background:var(--blue);border-color:var(--blue)}
 .cb.on::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
@@ -172,7 +173,12 @@ const store = {get: k => { try { return localStorage.getItem(k) || ''; } catch {
 let token = store.get('fd_token'), who = store.get('fd_who');
 // 주소 뒤 #t=토큰 으로 열면 저장하고 주소창에서 바로 지움 (# 뒤는 서버로 안 감)
 { const m = location.hash.match(/^#t=([\w-]+)/); if (m) { token = m[1]; store.set('fd_token', token); history.replaceState(null, '', location.pathname); } }
-let S = {branch: 'main', head: null, files: [], meta: {}, apps: [], spaces: []};
+let S = {branch: 'main', head: null, files: [], meta: {}, apps: [], spaces: [], git: null};
+// 이 PC에 파일공유 앱이 켜져 있으면 그 폴더 git 상태를 물어봄 (꺼져 있으면 null → git 표시 없음)
+const LOCAL = 'http://127.0.0.1:47831', GIT = {M: '수정됨', A: '추가됨', '??': '새 파일', '?': '새 파일', MM: '수정됨', AM: '추가됨'};
+async function localGit() { try { const r = await fetch(LOCAL + '/api/gitstate', {cache: 'no-store', signal: AbortSignal.timeout(1500)}); return r.ok ? (await r.json()).git : null; } catch { return null; } }
+const gitOf = f => S.git && S.git[f.rel];
+const gdir = ps => S.git ? ps.filter(p => { const f = S.files.find(x => x.path === p); return f && gitOf(f); }).length : 0;
 let sel = new Set(), open = new Set(), target = '_공유', busy = false, tab = null;
 const curTab = () => tab && S.spaces.includes(tab) ? tab : (who && S.spaces.includes(who) ? who : S.spaces[0] || who || '');
 const mine = () => curTab() === who;
@@ -201,6 +207,7 @@ async function load() {
   S.meta = await blob(META) || {};
   S.apps = (await blob(APPS) || []).map(a => ({...a, space: a.space || '횡'})).map(a => ({...a, id: `${a.space}/${a.entry}`}));
   S.baseTree = c.tree.sha;
+  S.git = await localGit();
   S.files = t.tree.filter(x => x.type === 'blob' && !x.path.startsWith('.filedrop/') && x.path.includes('/'))
     .map(x => { const i = x.path.indexOf('/'); return {path: x.path, space: x.path.slice(0, i), rel: x.path.slice(i + 1), sha: x.sha, size: x.size, ...(S.meta[x.path] || {})}; });
   S.spaces = [...new Set([...S.files.map(f => f.space), ...(who ? [who] : [])])].sort((a, b) => (a !== who) - (b !== who) || a.localeCompare(b, 'ko'));
@@ -293,13 +300,13 @@ function render() {
       const fs = under(dn), on = fs.filter(p => sel.has(p)).length, isOpen = q || open.has(dn.path);
       out.push(`<div class="tr row dir" data-dir="${esc(dn.path)}"><div class="nm" ${pad(d)}><span class="tw">${isOpen ? '▾' : '▸'}</span>
         <span class="cb ${on === fs.length ? 'on' : on ? 'part' : ''}" data-dcb role="checkbox" aria-checked="${on === fs.length}"></span><span class="ic">📁</span>
-        <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span></div><span></span><span></span>
+        <span class="t">${esc(dn.name)} <span class="cnt">${dn.n}</span></span>${gdir(fs) ? `<span class="gtag" title="이 PC 폴더 git(VS Code)에 커밋 안 된 파일">git ${gdir(fs)}</span>` : ''}</div><span></span><span></span>
         <span class="acts">${mine() ? `<button class="here ${target === dn.path ? 'on' : ''}" data-here="${esc(dn.path)}">${target === dn.path ? '여기로 올림' : '여기로'}</button>` : ''}</span></div>`);
       if (isOpen) walk(dn, d + 1);
     }
     for (const f of node.files.sort((a, b) => a.rel.localeCompare(b.rel, 'ko'))) {
       out.push(`<div class="tr row ${sel.has(f.path) ? 'sel' : ''}" data-file="${esc(f.path)}"><div class="nm" ${pad(d)}><span class="tw"></span>
-        <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.rel))}</span></div>
+        <span class="cb ${sel.has(f.path) ? 'on' : ''}" role="checkbox" aria-checked="${sel.has(f.path)}"></span><span class="ic">📄</span><span class="t">${esc(baseOf(f.rel))}</span>${gitOf(f) ? `<span class="gtag" title="이 PC 폴더 git(VS Code)에 커밋 안 됨 · ${esc(GIT[gitOf(f)] || gitOf(f))}">git</span>` : ''}</div>
         <span class="who">${f.by ? `<span class="av" style="background:${avColor(f.by)}">${esc(f.by[0])}</span>${esc(f.by)}` : ''}</span>
         <span class="muted">${fmt(f.at)}</span><span class="acts"><button class="btn mini" data-get="${esc(f.path)}">받기</button></span></div>`);
     }
@@ -316,9 +323,11 @@ function renderBar() {
   const bar = $('#bar'), ps = [...sel];
   const one = ps.length === 1 && /\.(py|pyw|bat|exe)$/i.test(ps[0]) && !S.apps.some(a => a.id === ps[0]);
   const dels = ps.filter(p => p.startsWith(who + '/')).length;
+  const gits = ps.filter(p => { const f = S.files.find(x => x.path === p); return f && gitOf(f); }).length;
   bar.innerHTML = ps.length ? `<b>${ps.length}개 선택</b>
     <button class="btn pri" data-bar="get">⬇ 받기</button>
     ${one ? '<button class="btn" data-bar="app">▶ 프로그램에 추가</button>' : ''}
+    ${gits ? `<button class="btn" data-bar="git">git 커밋 ${gits}</button>` : ''}
     ${dels ? '<button class="btn" data-bar="del">삭제</button>' : ''}<button class="btn" data-bar="clear" aria-label="선택 해제">✕</button>` : '';
   bar.classList.toggle('show', ps.length > 0 && !busy);
 }
@@ -542,9 +551,20 @@ $('#bar').addEventListener('click', e => {
   const a = e.target.closest('[data-bar]')?.dataset.bar, ps = [...sel];
   if (a === 'get') download(ps);
   if (a === 'del') removeFiles(ps);
+  if (a === 'git') gitCommit(ps);
   if (a === 'app') addApp(ps[0]);
   if (a === 'clear') { sel.clear(); render(); }
 });
+async function gitCommit(ps) {
+  const rels = [...new Set(S.files.filter(f => ps.includes(f.path) && gitOf(f)).map(f => f.rel))];
+  let n = 0;
+  if (await act(`git 커밋 ${rels.length}개`, async () => {
+    const r = await fetch(LOCAL + '/api/gitcommit', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rels})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `git 커밋 실패 (${r.status})`);
+    n = j.result.done;
+  })) { sel.clear(); toast(`git 커밋 ${n}개`); }
+}
 let dragN = 0;
 addEventListener('dragenter', e => { e.preventDefault(); dragN++; document.body.classList.add('dragging'); });
 addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove('dragging'); document.querySelectorAll('.drop-on').forEach(x => x.classList.remove('drop-on')); } });
